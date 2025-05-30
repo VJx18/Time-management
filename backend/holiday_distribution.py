@@ -54,6 +54,40 @@ class HolidayTool:
                 'Nordrhein-Westfahlen': 77, 'Rheinland-Pfalz': 78, 'Saarland': 79,
                 'Sachsen': 80, 'Sachsen-Anhalt': 81, 'Schleswig-Holstein': 82,
                 'Thüringen': 83
+            },
+            2024: {
+                'Baden-Württemberg': 88 , 'Bayern (katholisch)': 89, 'Bayern': 90,
+                'Berlin': 91, 'Brandenburg': 92, 'Bremen': 93, 'Hamburg': 94,
+                'Hessen': 95, 'Mecklenburg-Vorpommern': 96, 'Niedersachsen': 97,
+                'Nordrhein-Westfahlen': 98, 'Rheinland-Pfalz': 99, 'Saarland': 100,
+                'Sachsen': 101, 'Sachsen-Anhalt': 102, 'Schleswig-Holstein': 103,
+                'Thüringen': 104
+            },
+            2025: {
+                'Baden-Württemberg': 109 , 'Bayern (katholisch)': 110, 'Bayern': 111,
+                'Berlin': 112, 'Brandenburg': 113, 'Bremen': 114, 'Hamburg': 115,
+                'Hessen': 116, 'Mecklenburg-Vorpommern': 117, 'Niedersachsen': 118,
+                'Nordrhein-Westfahlen': 119, 'Rheinland-Pfalz': 120, 'Saarland': 121,
+                'Sachsen': 122, 'Sachsen-Anhalt': 123, 'Schleswig-Holstein': 124,
+                'Thüringen': 125
+            },
+
+            2026: {
+                'Baden-Württemberg': 130 , 'Bayern (katholisch)': 131, 'Bayern': 132,
+                'Berlin': 133, 'Brandenburg': 134, 'Bremen': 135, 'Hamburg': 136,
+                'Hessen': 137, 'Mecklenburg-Vorpommern': 138, 'Niedersachsen': 139,
+                'Nordrhein-Westfahlen': 140, 'Rheinland-Pfalz': 141, 'Saarland': 142,
+                'Sachsen': 143, 'Sachsen-Anhalt': 144, 'Schleswig-Holstein': 145,
+                'Thüringen': 146
+            },
+
+            2027: {
+                'Baden-Württemberg': 151 , 'Bayern (katholisch)': 152, 'Bayern': 153,
+                'Berlin': 154, 'Brandenburg': 155, 'Bremen': 156, 'Hamburg': 157,
+                'Hessen': 158, 'Mecklenburg-Vorpommern': 159, 'Niedersachsen': 160,
+                'Nordrhein-Westfahlen': 161, 'Rheinland-Pfalz': 162, 'Saarland': 163,
+                'Sachsen': 164, 'Sachsen-Anhalt': 165, 'Schleswig-Holstein': 166,
+                'Thüringen': 167
             }
         }
         
