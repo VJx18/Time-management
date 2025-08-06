@@ -90,9 +90,11 @@ class HolidayTool:
                 'Thüringen': 167
             }
         }
+        self.file_format = None  # 10, 20, or 30
+        self.actual_years = []   
+        self.yr_offset = {}
         
         self.base_row = 1
-        self.yr_offset = self.calc_offsets()
         self.fei_first = 4
         self.fei_last = 377
         self.ist_first = 15
@@ -101,9 +103,111 @@ class HolidayTool:
         
         warnings.filterwarnings("ignore", message="Conditional Formatting extension is not supported and will be removed")
     
-    def calc_offsets(self):
-        yrs = sorted(self.bl_mapping.keys())
-        return {y: self.base_row + (i * 36) for i, y in enumerate(yrs)}
+    def detect_file_format_and_years(self):
+        """Detect file format (10/20/30 employees) and read actual years from the file"""
+        try:
+            wb = load_workbook(self.path, data_only=True)
+            
+            sheet = wb['IST Stunden']
+            
+            # First, determine the step size by checking common patterns
+            patterns_to_test = [
+                {'format': 10, 'step': 16},  # 10 employees: B1, B17, B33, B49, etc.
+                {'format': 20, 'step': 26},  # 20 employees: B1, B27, B53, B79, etc.
+                {'format': 30, 'step': 36}   # 30 employees: B1, B37, B73, B109, etc.
+            ]
+            
+            detected_format = None
+            step_size = None
+            
+            # Test each pattern to see which one has valid years
+            for pattern in patterns_to_test:
+                test_positions = [1, 1 + pattern['step'], 1 + 2*pattern['step']]
+                valid_years = 0
+                
+                for pos in test_positions:
+                    try:
+                        cell_value = sheet.cell(row=pos, column=2).value
+                        if cell_value and str(cell_value).isdigit():
+                            year = int(cell_value)
+                            if 2015 <= year <= 2030:  # Reasonable year range
+                                valid_years += 1
+                    except:
+                        pass
+                
+                if valid_years >= 2:  # At least 2 valid years found
+                    detected_format = pattern['format']
+                    step_size = pattern['step']
+                    break
+            
+            if not detected_format:
+                raise Exception("Could not detect file format")
+            
+            # Now scan ALL positions to find all years
+            all_years = []
+            position = 1  # Start at B1
+            max_positions_to_check = 20  # Safety limit
+            
+            for i in range(max_positions_to_check):
+                current_position = 1 + (i * step_size)
+                
+                try:
+                    cell_value = sheet.cell(row=current_position, column=2).value
+                    if cell_value and str(cell_value).isdigit():
+                        year = int(cell_value)
+                        if 2015 <= year <= 2030:  # Reasonable year range
+                            all_years.append((year, current_position))
+                            print(f"Found year {year} at position B{current_position}")
+                        else:
+                            # If we hit an invalid year, we might have reached the end
+                            break
+                    else:
+                        # If we hit an empty cell, we've probably reached the end
+                        break
+                except:
+                    # If we can't read the cell, we've probably reached the end
+                    break
+            
+            if len(all_years) < 2:
+                raise Exception("Not enough valid years found")
+            
+            # Verify years are consecutive
+            years_only = [y[0] for y in all_years]
+            years_only.sort()
+            
+            # Check if years are consecutive (allowing for some gaps)
+            if not all(years_only[i+1] - years_only[i] <= 2 for i in range(len(years_only)-1)):
+                print("Warning: Years might not be consecutive")
+            
+            self.file_format = detected_format
+            self.actual_years = years_only
+            
+            # Create year offset mapping using actual positions found
+            self.yr_offset = {}
+            for year, position in all_years:
+                self.yr_offset[year] = position
+            
+            print(f"Detected format: {detected_format} employees")
+            print(f"Years found: {self.actual_years}")
+            print(f"Year offsets: {self.yr_offset}")
+            
+            # Verify we have holiday data for all detected years
+            missing_years = []
+            for year in self.actual_years:
+                if year not in self.bl_mapping:
+                    missing_years.append(year)
+            
+            if missing_years:
+                print(f"Warning: No holiday data available for years: {missing_years}")
+                # Remove years without holiday data
+                self.actual_years = [y for y in self.actual_years if y in self.bl_mapping]
+                print(f"Will process only years with holiday data: {self.actual_years}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error detecting file format: {e}")
+            return False
     
     def get_metadata(self):
         try:
@@ -147,11 +251,11 @@ class HolidayTool:
 
         try:
             fei_file_path = os.path.join(os.path.dirname(__file__), "Feiertage.xlsx")
-            fei_wb = load_workbook(ei_file_path, data_only=True)
+            fei_wb = load_workbook(fei_file_path, data_only=True)
             fei_sheet = fei_wb.active
         except Exception as e:
             raise Exception(f"Can't load holidays file: {e}")
-            return False
+            
 
         print(f"\nDoing {emp_data['full_name']} in {emp_data['state']}...")
 
@@ -163,18 +267,22 @@ class HolidayTool:
         if pd.isna(start_dt) or pd.isna(end_dt):
             print(f"  Missing dates for {emp_data['full_name']}")
             return False
+            
 
         print(f"  Working: {start_dt} to {end_dt}")
 
         total_marked = 0
         total_skipped = 0
 
-        for yr, state_rows in self.bl_mapping.items():
-            if emp_data['state'] not in state_rows:
+        for yr in self.actual_years:
+            if yr not in self.bl_mapping:
+                print(f"  No holiday data for year {yr}")
+                continue
+            if emp_data['state'] not in self.bl_mapping[yr]:
                 print(f"  Can't find {emp_data['state']} for {yr}")
                 continue
 
-            src_row = state_rows[emp_data['state']]
+            src_row =self.bl_mapping[yr][emp_data['state']]
             holiday_data = []
             
             for col in range(self.fei_first, self.fei_last + 1):
@@ -255,6 +363,10 @@ class HolidayTool:
             return None
     
     def execute(self, out_path=None):
+        print("Detecting file format and years...")
+        if not self.detect_file_format_and_years():
+            print("Could not detect file format")
+            return None
         
         
         print("Getting metadata...")
@@ -278,6 +390,8 @@ class HolidayTool:
         
         if result:
             print(f"\nDone! Processed {len(self.emp_list)} employees")
+            print(f"File format: {self.file_format} employees")
+            print(f"Years processed: {self.actual_years}")
             print(f"File: {result}")
         else:
             print("\nFailed")
@@ -297,33 +411,9 @@ app = Flask(__name__)
 CORS(app)  
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 
 temp_files = {}
-
-
-def get_file_input():
-    """Get file name from user with validation"""
-    while True:
-        print("\n=== File Selection ===")
-        file_name = input("Enter Excel file name (or path): ").strip()
-        
-        if not file_name:
-            print("Please enter a file name")
-            continue
-            
-        # Add .xlsx if not present
-        if not file_name.endswith('.xlsx'):
-            file_name += '.xlsx'
-            
-        # Check if file exists
-        if os.path.exists(file_name):
-            print(f"Found file: {file_name}")
-            return file_name
-        else:
-            print(f"File '{file_name}' not found")
-            retry = input("Try again? (y/n): ").lower()
-            if retry != 'y':
-                return None
-
-
+@app.route('/api/health')
+def health_check():
+    return jsonify({'status': 'ok', 'message': 'Backend is running'})
 
 
 @app.route('/api/process-holidays', methods=['POST'])
@@ -379,6 +469,8 @@ def process_holidays():
                 'success': True,
                 'message': fun_message,
                 'employees_processed': len(tool.emp_list),
+                'file_format_detected': f"{tool.file_format} employees",
+                'years_processed': tool.actual_years,
                 'download_url': f'/api/download/{file_id}'
             })
         else:
